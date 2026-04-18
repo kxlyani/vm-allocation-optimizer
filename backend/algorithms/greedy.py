@@ -3,7 +3,7 @@ from typing import List
 
 from models import Server, VM
 from scoring import apply_vm, compute_score, fits, init_state
-from utils import compute_metrics, record_step
+from utils import compute_metrics
 
 
 def run(servers: List[Server], vms: List[VM], mode: str):
@@ -28,7 +28,7 @@ def run(servers: List[Server], vms: List[VM], mode: str):
         best_server = None
         best_score = -float("inf")
         for server in servers:
-            record_step(steps, servers, allocation, states, unallocated, vm.id, server.id, "consider")
+            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "consider", "reason": None})
             if fits(vm, server, states[server.id]):
                 score = compute_score(vm, server, states[server.id], mode)
                 if score > best_score:
@@ -37,45 +37,12 @@ def run(servers: List[Server], vms: List[VM], mode: str):
 
         if best_server is None:
             unallocated.append(vm.id)
-            record_step(
-                steps,
-                servers,
-                allocation,
-                states,
-                unallocated,
-                vm.id,
-                None,
-                "reject",
-                reason="No server has capacity",
-            )
+            steps.append({"vm_id": vm.id, "server_id": None, "action": "reject", "reason": "No server has capacity"})
             continue
 
         states[best_server.id] = apply_vm(states[best_server.id], vm)
         allocation[best_server.id].append(vm.id)
-        record_step(
-            steps,
-            servers,
-            allocation,
-            states,
-            unallocated,
-            vm.id,
-            best_server.id,
-            "place",
-            reason=f"score={best_score:.3f}",
-            score=best_score,
-        )
-
-    record_step(
-        steps,
-        servers,
-        allocation,
-        states,
-        unallocated,
-        "final_state",
-        None,
-        "consider",
-        reason="final greedy snapshot",
-    )
+        steps.append({"vm_id": vm.id, "server_id": best_server.id, "action": "place", "reason": f"score={best_score:.3f}"})
 
     elapsed = (time.perf_counter() - start) * 1000
     return {

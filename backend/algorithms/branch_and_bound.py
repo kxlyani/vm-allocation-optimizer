@@ -5,7 +5,7 @@ from typing import List
 
 from models import Server, VM
 from scoring import apply_vm, compute_score, fits, init_state
-from utils import compute_metrics, record_step
+from utils import compute_metrics
 
 
 def run(servers: List[Server], vms: List[VM], mode: str):
@@ -44,7 +44,7 @@ def run(servers: List[Server], vms: List[VM], mode: str):
 
         vm = vms[idx]
         for server in servers:
-            record_step(steps, servers, allocation, states, unallocated, vm.id, server.id, "consider")
+            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "consider", "reason": None})
             if not fits(vm, server, states[server.id]):
                 continue
             ns = deepcopy(states)
@@ -57,19 +57,7 @@ def run(servers: List[Server], vms: List[VM], mode: str):
             if ub > best["score"]:
                 counter += 1
                 heapq.heappush(heap, (-ub, counter, idx + 1, ns, na, list(unallocated), nscore))
-                record_step(
-                    steps,
-                    servers,
-                    na,
-                    ns,
-                    unallocated,
-                    vm.id,
-                    server.id,
-                    "place",
-                    reason=f"ub={ub:.2f}",
-                    score=nscore,
-                    upper_bound=ub,
-                )
+                steps.append({"vm_id": vm.id, "server_id": server.id, "action": "place", "reason": f"ub={ub:.2f}"})
 
         ub = upper_bound(idx + 1, states, current_score)
         if ub > best["score"]:
@@ -78,36 +66,11 @@ def run(servers: List[Server], vms: List[VM], mode: str):
                 heap,
                 (-ub, counter, idx + 1, deepcopy(states), deepcopy(allocation), unallocated + [vm.id], current_score),
             )
-            record_step(
-                steps,
-                servers,
-                allocation,
-                states,
-                unallocated + [vm.id],
-                vm.id,
-                None,
-                "reject",
-                reason=f"skip branch ub={ub:.2f}",
-                score=current_score,
-                upper_bound=ub,
-            )
 
     elapsed = (time.perf_counter() - start) * 1000
     out_allocation = best["allocation"] or {s.id: [] for s in servers}
     out_unallocated = best["unallocated"] or [vm.id for vm in vms]
     out_states = best["states"] or {s.id: init_state() for s in servers}
-    record_step(
-        steps,
-        servers,
-        out_allocation,
-        out_states,
-        out_unallocated,
-        "final_state",
-        None,
-        "consider",
-        reason="best solution snapshot",
-        score=best["score"] if best["score"] != -float("inf") else None,
-    )
     return {
         "algorithm": "branch_and_bound",
         "mode": mode,

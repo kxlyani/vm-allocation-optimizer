@@ -6,7 +6,6 @@ from models import AllocationRequest
 from presets import get_presets
 
 app = FastAPI(title="VM Allocation Optimizer API")
-MAX_STEPS_PER_ALGO = 1200
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,10 +27,7 @@ def allocate(req: AllocationRequest):
     results = {}
     for algo in req.algorithms:
         if algo in ALGO_MAP:
-            result = ALGO_MAP[algo](req.servers, req.vms, req.mode)
-            if len(result.get("steps", [])) > MAX_STEPS_PER_ALGO:
-                result["steps"] = result["steps"][:MAX_STEPS_PER_ALGO]
-            results[algo] = result
+            results[algo] = ALGO_MAP[algo](req.servers, req.vms, req.mode)
     return {"results": results}
 
 

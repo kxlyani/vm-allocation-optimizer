@@ -57,40 +57,10 @@ class AllocationMetrics(BaseModel):
 
 
 class AllocationStep(BaseModel):
-    step_index: int
-    timestamp_ms: float
     vm_id: str
     server_id: Optional[str]
     action: Literal["place", "reject", "consider", "backtrack"]
     reason: Optional[str] = None
-    score: Optional[float] = None
-    upper_bound: Optional[float] = None
-    snapshot: Optional["StepSnapshot"] = None
-
-
-class ServerResourceState(BaseModel):
-    total_cpu: float
-    total_ram: float
-    total_storage: float
-    total_heat: float
-    used_cpu: float
-    used_ram: float
-    used_storage: float
-    used_heat: float
-    remaining_cpu: float
-    remaining_ram: float
-    remaining_storage: float
-    remaining_heat: float
-    cpu_utilization_pct: float
-    ram_utilization_pct: float
-    storage_utilization_pct: float
-    heat_utilization_pct: float
-
-
-class StepSnapshot(BaseModel):
-    allocation: Dict[str, List[str]]
-    server_states: Dict[str, ServerResourceState]
-    unallocated: List[str]
 
 
 class AllocationResult(BaseModel):

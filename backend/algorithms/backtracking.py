@@ -4,7 +4,7 @@ from typing import List
 
 from models import Server, VM
 from scoring import apply_vm, compute_score, fits, init_state
-from utils import compute_metrics, record_step
+from utils import compute_metrics
 
 
 def run(servers: List[Server], vms: List[VM], mode: str):
@@ -35,37 +35,17 @@ def run(servers: List[Server], vms: List[VM], mode: str):
 
         vm = vms[idx]
         for server in servers:
-            record_step(steps, servers, allocation, states, current_unallocated, vm.id, server.id, "consider")
+            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "consider", "reason": None})
             if not fits(vm, server, states[server.id]):
                 continue
             prev_state = deepcopy(states[server.id])
             states[server.id] = apply_vm(states[server.id], vm)
             allocation[server.id].append(vm.id)
-            record_step(
-                steps,
-                servers,
-                allocation,
-                states,
-                current_unallocated,
-                vm.id,
-                server.id,
-                "place",
-                reason="recursive try",
-            )
+            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "place", "reason": "recursive try"})
             backtrack(idx + 1, current_unallocated)
             allocation[server.id].pop()
             states[server.id] = prev_state
-            record_step(
-                steps,
-                servers,
-                allocation,
-                states,
-                current_unallocated,
-                vm.id,
-                server.id,
-                "backtrack",
-                reason="explore next branch",
-            )
+            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "backtrack", "reason": "explore next branch"})
 
         backtrack(idx + 1, current_unallocated + [vm.id])
 
@@ -74,18 +54,6 @@ def run(servers: List[Server], vms: List[VM], mode: str):
     best_allocation = best["allocation"] or {s.id: [] for s in servers}
     best_unallocated = best["unallocated"] or []
     best_states = best["states"] or {s.id: init_state() for s in servers}
-    record_step(
-        steps,
-        servers,
-        best_allocation,
-        best_states,
-        best_unallocated,
-        "final_state",
-        None,
-        "consider",
-        reason="best solution snapshot",
-        score=best["score"] if best["score"] != -float("inf") else None,
-    )
     return {
         "algorithm": "backtracking",
         "mode": mode,

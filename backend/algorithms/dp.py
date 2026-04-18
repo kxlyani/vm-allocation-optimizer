@@ -3,7 +3,7 @@ from typing import List
 
 from models import Server, VM
 from scoring import compute_score, init_state
-from utils import compute_metrics, record_step
+from utils import compute_metrics
 
 BINS = 10
 
@@ -54,18 +54,7 @@ def run(servers: List[Server], vms: List[VM], mode: str):
                         new_score = score_now + add
                         if new_score > dp[nc][nr][ns][0]:
                             dp[nc][nr][ns] = (new_score, vm_list + [vm.id])
-                            record_step(
-                                steps,
-                                servers,
-                                {s.id: [] for s in servers},
-                                {s.id: init_state() for s in servers},
-                                [],
-                                vm.id,
-                                server.id,
-                                "consider",
-                                reason=f"dp={new_score:.2f}",
-                                score=new_score,
-                            )
+                            steps.append({"vm_id": vm.id, "server_id": server.id, "action": "consider", "reason": f"dp={new_score:.2f}"})
 
         best_score = -float("inf")
         best_subset = []
@@ -79,18 +68,7 @@ def run(servers: List[Server], vms: List[VM], mode: str):
         for vm_id in best_subset:
             if vm_id not in vm_assignment or vm_assignment[vm_id][1] < best_score:
                 vm_assignment[vm_id] = (server.id, best_score)
-                record_step(
-                    steps,
-                    servers,
-                    {s.id: [] for s in servers},
-                    {s.id: init_state() for s in servers},
-                    [],
-                    vm_id,
-                    server.id,
-                    "place",
-                    reason="dp optimal",
-                    score=best_score,
-                )
+                steps.append({"vm_id": vm_id, "server_id": server.id, "action": "place", "reason": "dp optimal"})
 
     allocation = {s.id: [] for s in servers}
     states = {s.id: init_state() for s in servers}
@@ -104,42 +82,8 @@ def run(servers: List[Server], vms: List[VM], mode: str):
             states[sid]["used_storage"] += vm.storage
             states[sid]["used_heat"] += vm.heat_value
             assigned.add(vm.id)
-            record_step(
-                steps,
-                servers,
-                allocation,
-                states,
-                [v.id for v in vms if v.id not in assigned and v.id not in vm_assignment],
-                vm.id,
-                sid,
-                "place",
-                reason="applied final dp assignment",
-            )
 
     unallocated = [vm.id for vm in vms if vm.id not in assigned]
-    for vm_id in unallocated:
-        record_step(
-            steps,
-            servers,
-            allocation,
-            states,
-            unallocated,
-            vm_id,
-            None,
-            "reject",
-            reason="not selected by dp",
-        )
-    record_step(
-        steps,
-        servers,
-        allocation,
-        states,
-        unallocated,
-        "final_state",
-        None,
-        "consider",
-        reason="final dp snapshot",
-    )
     elapsed = (time.perf_counter() - start) * 1000
     return {
         "algorithm": "dp",
